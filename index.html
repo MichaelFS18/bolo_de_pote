@@ -1096,22 +1096,63 @@ $('#file-json').addEventListener('change',async function(e){
   await importJSON(file);
 });
 
+async function migrateLocalToCloud(){
+  try{
+    var raw = localStorage.getItem(LS);
+    if(!raw) return;
+    var d = JSON.parse(raw);
+    var localSabores = d.sabores || [];
+    var localPedidos = d.pedidos || [];
+    if(!localSabores.length && !localPedidos.length) return;
+    var check = await DB.collection('sabores').limit(1).get();
+    if(!check.empty){ console.log('[migração] nuvem já tem dados, pulando'); return; }
+    console.log('[migração] enviando', localSabores.length, 'sabores,', localPedidos.length, 'pedidos');
+    var p = [];
+    localSabores.forEach(function(s){
+      var o = JSON.parse(JSON.stringify(s)); delete o.id;
+      p.push(DB.doc('sabores/'+s.id).set(o));
+    });
+    localPedidos.forEach(function(x){
+      var o = JSON.parse(JSON.stringify(x)); delete o.id;
+      p.push(DB.doc('pedidos/'+x.id).set(o));
+    });
+    if(d.cfg) p.push(DB.doc('config/geral').set(d.cfg, {merge:true}));
+    await Promise.all(p);
+    console.log('[migração] ok');
+    toast('Sabores antigos enviados pra nuvem!');
+  }catch(e){
+    console.warn('[migração] falhou:', e);
+  }
+}
+
 async function init(){
   render();
-  var db=null;
-  if(window.__firebaseDB){
-    db = window.__firebaseDB;
-    console.log('[app] usando Firebase');
-  }
-  if(db){
-    DB = db;
-    S.mode = 'db';
-    subscribe();
-  } else {
+  if(!window.__firebaseDB){
+    console.log('[app] sem Firebase, usando localStorage');
     S.mode = 'local';
     lsLoad();
     S.ready = true;
     render(true);
+    return;
+  }
+  DB = window.__firebaseDB;
+  S.mode = 'db';
+  console.log('[app] testando conexão Firestore...');
+  var ok = await Promise.race([
+    DB.doc('config/geral').get().then(function(){ console.log('[app] Firestore OK'); return true; })
+      .catch(function(e){ console.error('[app] Firestore erro:', e.code, e.message); return false; }),
+    new Promise(function(r){ setTimeout(function(){ r('timeout'); }, 6000) })
+  ]);
+  if(ok === true){
+    await migrateLocalToCloud();
+    subscribe();
+  } else {
+    console.warn('[app] Firestore indisponível ('+ok+'), usando localStorage');
+    S.mode = 'local';
+    lsLoad();
+    S.ready = true;
+    render(true);
+    toast('Sem conexão com a nuvem. Salvando localmente.');
   }
 }
 init();
