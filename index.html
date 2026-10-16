@@ -6,6 +6,24 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+try{
+  firebase.initializeApp({
+    apiKey:"AIzaSyCA1Dbm5zssUAa5pwXMcO2xdicsKaqTf8",
+    authDomain:"bolo-de-pote-b6415.firebaseapp.com",
+    databaseURL:"https://bolo-de-pote-b6415-default-rtdb.firebaseio.com",
+    projectId:"bolo-de-pote-b6415",
+    storageBucket:"bolo-de-pote-b6415.firebasestorage.app",
+    messagingSenderId:"154378776316",
+    appId:"1:154378776316:web:61850b0d4ce13d2209b179",
+    measurementId:"G-DXH6TE7G40"
+  });
+  window.__firebaseDB = firebase.firestore();
+  console.log('[firebase] conectado');
+}catch(e){console.warn('[firebase] falhou', e)}
+</script>
 <style>
 :root{
   --bg:#fbf5f6; --surface:#ffffff; --surface-2:#f6ebef; --ink:#2b1820; --ink-2:#6b5360; --line:#ead8de;
@@ -277,7 +295,7 @@ function sortSabores(){S.sabores.sort(function(a,b){return (a.ordem||0)-(b.ordem
 async function put(coll,id,obj){
   if(DB){
     try{await DB.doc(coll+'/'+id).set(obj,{merge:true});return true}
-    catch(e){toast('Não foi possível salvar. Tente de novo.');return false}
+    catch(e){console.error(e);toast('Não foi possível salvar. Tente de novo.');return false}
   }
   var arr=S[coll], row=Object.assign({id:id},obj), i=arr.findIndex(function(x){return x.id===id});
   if(i<0)arr.push(row);else arr[i]=row;
@@ -287,7 +305,7 @@ async function put(coll,id,obj){
 async function del(coll,id){
   if(DB){
     try{await DB.doc(coll+'/'+id).delete();return true}
-    catch(e){toast('Não foi possível excluir. Tente de novo.');return false}
+    catch(e){console.error(e);toast('Não foi possível excluir. Tente de novo.');return false}
   }
   S[coll]=S[coll].filter(function(x){return x.id!==id});lsSave();render(true);return true;
 }
@@ -295,12 +313,12 @@ async function putCfg(patch){
   var next=Object.assign({},S.cfg,patch);
   if(DB){
     try{await DB.doc('config/geral').set(next,{merge:true});return true}
-    catch(e){toast('Não foi possível salvar. Tente de novo.');return false}
+    catch(e){console.error(e);toast('Não foi possível salvar. Tente de novo.');return false}
   }
   S.cfg=next;lsSave();render(true);return true;
 }
 function subscribe(){
-  var fail=function(){S.ready=true;render()};
+  var fail=function(err){console.error('[firestore]',err);S.ready=true;render()};
   DB.collection('sabores').onSnapshot(function(s){
     S.sabores=s.docs.map(function(d){return Object.assign({id:d.id},d.data())});
     sortSabores();S.ready=true;render();
@@ -483,7 +501,6 @@ function drawJarCanvas(ctx,x,y,w,h,cores){
   var bodyH=jarH-30;
   var cs=(cores&&cores.length)?cores:['#4a2a1d','#f1e4cf','#b8213f'];
   var bandH=bodyH/cs.length;
-
   ctx.save();
   roundRect(ctx,jx,bodyTop,jarW,bodyH,14);
   ctx.clip();
@@ -496,12 +513,10 @@ function drawJarCanvas(ctx,x,y,w,h,cores){
   ctx.fillStyle='rgba(255,255,255,.35)';
   ctx.fillRect(jx+14,bodyTop+14,10,bodyH-28);
   ctx.restore();
-
   ctx.strokeStyle='rgba(120,90,100,.5)';
   ctx.lineWidth=3;
   roundRect(ctx,jx,bodyTop,jarW,bodyH,14);
   ctx.stroke();
-
   ctx.fillStyle='#3a2219';
   roundRect(ctx,jx-8,jy,jarW+16,40,8);
   ctx.fill();
@@ -515,7 +530,6 @@ async function drawCardCanvas(ctx,x,y,w,h,imgH,f){
   ctx.strokeStyle='#ead8de';
   ctx.lineWidth=2;
   ctx.stroke();
-
   ctx.save();
   roundRect(ctx,x,y,w,imgH,24);
   ctx.clip();
@@ -535,7 +549,6 @@ async function drawCardCanvas(ctx,x,y,w,h,imgH,f){
   }
   if(!drawn)drawJarCanvas(ctx,x,y,w,imgH,f.cores);
   ctx.restore();
-
   var tx=x+28, ty=y+imgH+26;
   ctx.fillStyle='#2b1820';
   ctx.font='700 34px "Bricolage Grotesque", system-ui, sans-serif';
@@ -561,14 +574,12 @@ async function shareMenuImage(){
   if(!S.sabores.length){toast('Sem sabores para compartilhar');return}
   toast('Preparando imagem…');
   try{await (document.fonts&&document.fonts.ready)||Promise.resolve()}catch(e){}
-
   var W=1080, PAD=56, COLS=2, GAP=28;
   var CARD_W=(W-PAD*2-GAP*(COLS-1))/COLS;
   var IMG_H=240, INFO_H=140, CARD_H=IMG_H+INFO_H;
   var HEADER_H=230, FOOTER_H=110;
   var rows=Math.ceil(S.sabores.length/COLS);
   var H=HEADER_H+PAD+rows*CARD_H+(rows-1)*GAP+FOOTER_H;
-
   var scale=Math.min(2,Math.max(1,3000/H));
   var cv=document.createElement('canvas');
   cv.width=Math.round(W*scale);
@@ -576,13 +587,11 @@ async function shareMenuImage(){
   var ctx=cv.getContext('2d');
   ctx.scale(scale,scale);
   ctx.textBaseline='top';
-
   var grad=ctx.createLinearGradient(0,0,0,H);
   grad.addColorStop(0,'#fbf5f6');
   grad.addColorStop(1,'#f6ebef');
   ctx.fillStyle=grad;
   ctx.fillRect(0,0,W,H);
-
   ctx.fillStyle='#b8213f';
   ctx.font='800 66px "Bricolage Grotesque", system-ui, sans-serif';
   var brand=S.cfg.loja||'Bolos de Pote';
@@ -595,12 +604,10 @@ async function shareMenuImage(){
   ctx.fillStyle='#6b5360';
   ctx.font='500 30px Figtree, system-ui, sans-serif';
   ctx.fillText('Cardápio · faça seu pedido',PAD,PAD+92);
-
   var lineY=PAD+150;
   ctx.strokeStyle='#ead8de';
   ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(PAD,lineY);ctx.lineTo(W-PAD,lineY);ctx.stroke();
-
   var topY=HEADER_H+PAD;
   for(var i=0;i<S.sabores.length;i++){
     var f=S.sabores[i];
@@ -609,18 +616,15 @@ async function shareMenuImage(){
     var y=topY+row*(CARD_H+GAP);
     await drawCardCanvas(ctx,x,y,CARD_W,CARD_H,IMG_H,f);
   }
-
   ctx.fillStyle='#6b5360';
   ctx.font='500 22px Figtree, system-ui, sans-serif';
   ctx.textAlign='center';
   ctx.fillText('Para pedir, chame no WhatsApp',W/2,H-PAD-40);
   ctx.textAlign='start';
-
   var blob=await new Promise(function(r){cv.toBlob(r,'image/png')});
   if(!blob){toast('Não foi possível gerar a imagem');return}
   var file;
   try{file=new File([blob],'cardapio.png',{type:'image/png'})}catch(e){file=null}
-
   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
     try{
       await navigator.share({
@@ -631,7 +635,6 @@ async function shareMenuImage(){
       return;
     }catch(e){if(e&&e.name==='AbortError')return}
   }
-
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
   a.href=url;
@@ -644,14 +647,7 @@ async function shareMenuImage(){
 }
 
 function exportJSON(){
-  var data={
-    app:'bolos-de-pote',
-    versao:1,
-    exportadoEm:new Date().toISOString(),
-    sabores:S.sabores,
-    pedidos:S.pedidos,
-    cfg:S.cfg
-  };
+  var data={app:'bolos-de-pote',versao:1,exportadoEm:new Date().toISOString(),sabores:S.sabores,pedidos:S.pedidos,cfg:S.cfg};
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
@@ -665,19 +661,12 @@ function exportJSON(){
 }
 async function importJSON(file){
   var data;
-  try{
-    var text=await file.text();
-    data=JSON.parse(text);
-  }catch(e){toast('Arquivo inválido');return}
+  try{data=JSON.parse(await file.text())}catch(e){toast('Arquivo inválido');return}
   if(!data||typeof data!=='object'){toast('Arquivo inválido');return}
-  var nS=(data.sabores||[]).length;
-  var nP=(data.pedidos||[]).length;
+  var nS=(data.sabores||[]).length, nP=(data.pedidos||[]).length;
   var resumo=nS+' sabor(es)\n'+nP+' pedido(s)';
-  if(data.exportadoEm){
-    try{resumo+='\n\nExportado em '+new Date(data.exportadoEm).toLocaleString('pt-BR')}catch(e){}
-  }
+  if(data.exportadoEm){try{resumo+='\n\nExportado em '+new Date(data.exportadoEm).toLocaleString('pt-BR')}catch(e){}}
   if(!confirm('Substituir TODOS os dados atuais por este backup?\n\n'+resumo))return;
-
   if(DB){
     try{
       var tasks=[];
@@ -694,8 +683,7 @@ async function importJSON(file){
     S.sabores=data.sabores||[];
     S.pedidos=data.pedidos||[];
     S.cfg=Object.assign({},S.cfg,data.cfg||{});
-    sortSabores();
-    lsSave();
+    sortSabores();lsSave();
   }
   render(true);
   toast('Backup importado');
@@ -825,8 +813,8 @@ function vAjustes(){
    +'<div class="row"><button class="btn sm" data-act="export-json">Exportar backup</button>'
    +'<button class="btn sm ghost" data-act="import-json">Importar backup</button></div></div>'
    +'<div class="card panel"><h3>Onde ficam os dados</h3><p class="muted" style="margin:0">'
-   +(S.mode==='db'?'Pedidos, sabores e PIX ficam salvos na sua conta e aparecem em qualquer aparelho em que você abrir este link.'
-     :'Os dados ficam salvos somente neste navegador. Abrir em outro aparelho mostra um app vazio.')+'</p></div></div>';
+   +(S.mode==='db'?'✅ Conectado à nuvem (Firebase). Tudo que você cadastrar aparece em qualquer aparelho em tempo real.'
+     :'⚠️ Os dados estão salvos somente neste navegador. Verifique sua conexão — o app não conseguiu acessar a nuvem.')+'</p></div></div>';
 }
 
 function render(force){
@@ -1023,11 +1011,7 @@ document.addEventListener('click',async function(e){
       break}
     case 'show-pix':{var pp=S.pedidos.find(function(x){return x.id===id});if(pp)openSheet('pix',pixSheetHTML(pp),'Cobrar '+pp.nome);break}
     case 'copy-key':copyText(S.cfg.pixChave);break;
-    case 'copy-payload':{
-      var ta=$('#pix-payload');
-      var raw=ta?ta.value.replace(/\s+/g,''):'';
-      copyText(raw);
-      break}
+    case 'copy-payload':{var ta=$('#pix-payload');var raw=ta?ta.value.replace(/\s+/g,''):'';copyText(raw);break}
     case 'pick-qr':pickTarget='qr';$('#file-pick').click();break;
     case 'rm-qr':putCfg({pixQr:''});break;
     case 'new-sabor':openSabor(null);break;
@@ -1115,13 +1099,20 @@ $('#file-json').addEventListener('change',async function(e){
 async function init(){
   render();
   var db=null;
-  try{
-    if(window.claude&&window.claude.use){
-      db=await Promise.race([window.claude.use('db'),new Promise(function(r){setTimeout(function(){r(null)},4000)})]);
-    }
-  }catch(e){db=null}
-  if(db){DB=db;S.mode='db';subscribe()}
-  else{S.mode='local';lsLoad();S.ready=true;render(true)}
+  if(window.__firebaseDB){
+    db = window.__firebaseDB;
+    console.log('[app] usando Firebase');
+  }
+  if(db){
+    DB = db;
+    S.mode = 'db';
+    subscribe();
+  } else {
+    S.mode = 'local';
+    lsLoad();
+    S.ready = true;
+    render(true);
+  }
 }
 init();
 })();
